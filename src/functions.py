@@ -236,5 +236,10 @@ def East_to_West(df):
     return East_to_West
 
 
-
+def random_num_of_customer_orders(seed, loc, scale, size1, size2):
+    np.random.default_rng(seed)
+    rncos = np.random.normal(loc = loc, scale = scale, size = (size1, size2)).tolist()
+    rnco = rncos[0]
+    rncoi= ([int(a) for a in rnco])
+    return rncoi
 
