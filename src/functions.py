@@ -1,6 +1,7 @@
 import pandas as pd
 import statsmodels.api as sm
-
+import numpy as np
+super_explore =  pd.read_csv('superstore.csv', encoding = 'unicode_escape')
 
 def Central_to_South(df):
     '''Determines which products need to be shipped from the 
@@ -236,10 +237,18 @@ def East_to_West(df):
     return East_to_West
 
 
-def random_num_of_customer_orders(seed, loc, scale, size1, size2):
+def random_customer_orders(dataframe, seed, loc, scale, size1, size2, low, high):
     np.random.default_rng(seed)
     rncos = np.random.normal(loc = loc, scale = scale, size = (size1, size2)).tolist()
     rnco = rncos[0]
     rncoi= ([int(a) for a in rnco])
-    return rncoi
+    df = pd.DataFrame()
+    start = 0
+    for i in range(1, len(rncoi) + 1):
+        end = start + rncoi[i - 1]
+        df_temp = pd.DataFrame({'Day': [i] * rncoi[i - 1]})
+        df = pd.concat([df, df_temp], ignore_index=True)
+        df['orders'] = np.random.randint(low, high, size=len(df)) 
+        merged_df = pd.merge(df, dataframe, left_on = "orders", right_on= "Row ID")
+    return merged_df
 
