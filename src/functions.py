@@ -252,3 +252,92 @@ def random_customer_orders(dataframe, seed, loc, scale, size1, size2, low, high)
         merged_df = pd.merge(df, dataframe, left_on = "orders", right_on= "Row ID")
     return merged_df
 
+
+def high_middle_low(df, day):
+    high = len(df[(df["Ship Mode"] == "First Class") & (df["Day"] == day)]) +\
+           len(df[(df["Ship Mode"] == "Same Day") & (df["Day"] == day)])
+    middle = len(df[(df["Ship Mode"] == "Second Class") & (df["Day"] == day)])
+    low = len(df[(df["Ship Mode"] == "Standard Class") & (df["Day"] == day)])
+    return pd.DataFrame({'high': [high], 'middle': [middle], 'low': [low]})
+
+def combined_df(dest1, day, loads, dest1a):
+    df1 = high_middle_low(dest1, day)
+    df1['sent_units'] = loads[dest1a][day -1]
+    return df1
+
+def remainder(df):
+    from pandasql import sqldf
+    # Use pandasql to join the two dataframes
+    query = '''
+    SELECT
+        df.high,
+        df.middle,
+        df.low,
+        df.sent_units,
+        CASE
+            WHEN df.high > df.sent_units THEN df.high - df.sent_units
+            WHEN df.high + df.middle > df.sent_units THEN  df.high + df.middle - df.sent_units
+            ELSE df.high + df.middle + df.low - df.sent_units
+        END AS remainder
+    FROM
+        df
+    '''
+    df_result = sqldf(query)
+
+    #create a new column indicating the remainder is high, middle or low 
+    df_result['remainder_type'] = np.where(df.high > df.sent_units, 'high',
+                                      np.where(df.high + df.middle > df.sent_units, 'middle',
+                                               np.where(df.high + df.middle + df.low - df.sent_units > 0, 'low', 'other')))
+
+    return df_result
+
+
+def new_remainder_type(df):
+    new_df = pd.DataFrame()
+    new_df['new_high'] = df.loc[df['remainder_type'] == 'high', 'remainder']
+    new_df['new_middle'] = df.loc[df['remainder_type'] == 'middle', 'remainder']
+    new_df['new_low'] = df.loc[df['remainder_type'] == 'low', 'remainder']
+    new_df['middleqqq'] = df['middle']
+    new_df['lowqqq'] = df['low']
+    new_df = new_df.fillna(0)
+    return new_df
+
+
+
+
+def create_new_df(df1, df2):
+    from pandasql import sqldf
+    pysqldf = lambda q: sqldf(q, globals())
+    
+    query = """
+    SELECT 
+        CASE
+            WHEN df1.new_high > 0 THEN df1.new_high + df2.high
+            ELSE df2.high
+        END AS high,
+        CASE
+            WHEN df1.new_high > 0 THEN df1.middleqqq + df2.middle
+            WHEN df1.new_middle > 0 THEN df1.new_middle + df2.middle
+            ELSE df2.middle
+        END AS middle,
+        CASE
+            WHEN df1.new_high > 0 THEN df1.lowqqq + df2.low
+            WHEN df1.new_middle > 0 THEN df1.lowqqq + df2.low
+            WHEN df1.new_low > 0 THEN df1.new_low + df2.low
+            ELSE df2.low
+        END AS low
+    FROM 
+        df1
+    JOIN 
+        df2
+    """
+    df3 = pysqldf(query)
+    return df3
+
+
+
+
+
+
+
+
